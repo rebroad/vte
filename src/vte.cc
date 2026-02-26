@@ -9711,50 +9711,227 @@ Terminal::draw_rows(VteScreen *screen_,
                                 c = _vte_unistr_append_unistr (0x00A0, cell->c);
                                 lcol = -1;
                         }
-                        /* Combine adjacent regional indicators into one cluster so
-                         * OpenType ccmp can form country-flag emoji glyphs.
-                         * Keep this constrained to cells that would otherwise be in
-                         * the same draw run (same style/colors/link state). */
-                        auto const base = _vte_unistr_get_base(c);
-                        if (_vte_unistr_strlen(c) == 1 &&
-                                base >= 0x1F1E6 && base <= 0x1F1FF &&
-                                j < row_data->len && j < column_count) {
-                            auto next = _vte_row_data_get(row_data, j);
-                            if (next && !next->attr.fragment() &&
-                                    next->attr.columns() == 1 &&
-                                    _vte_unistr_strlen(next->c) == 1) {
-                                auto const next_base = _vte_unistr_get_base(next->c);
-                                if (next_base >= 0x1F1E6 && next_base <= 0x1F1FF) {
-                                    auto const next_selected = cell_is_selected_log(j, row);
-                                    guint next_fore, next_back, next_deco;
-                                    determine_colors(next, next_selected, &next_fore, &next_back, &next_deco);
-                                    auto const next_hyperlink = (m_allow_hyperlink && next->attr.hyperlink_idx != 0);
-                                    auto const next_hilite = (next_hyperlink && next->attr.hyperlink_idx == m_hyperlink_hover_idx) ||
-                                                             (!next_hyperlink && regex_match_has_current() && m_match_span.contains(row, j));
-                                    if (next->attr.attr == nattr &&
-                                        next_fore == nfore &&
-                                        next_back == nback &&
-                                        next_deco == ndeco &&
-                                        next_hyperlink == nhyperlink &&
-                                        next_hilite == nhilite) {
-                                            c = _vte_unistr_append_unistr(c, next->c);
-                                            j += next->attr.columns();
-                                    }
-                                }
-                            }
-                        }
+                        auto is_emoji_modifier = [](gunichar ch) -> bool {
+                                return ch >= 0x1F3FB && ch <= 0x1F3FF;
+                        };
+                        auto is_variation_selector = [](gunichar ch) -> bool {
+                                return (ch >= 0xFE00 && ch <= 0xFE0F) ||
+                                       (ch >= 0xE0100 && ch <= 0xE01EF);
+                        };
+                        auto is_fragment_continuation_char = [&](gunichar ch) -> bool {
+                                return ch == 0x200D || is_variation_selector(ch) ||
+                                       is_emoji_modifier(ch) || g_unichar_ismark(ch);
+                        };
+                        auto cell_matches_run = [&](VteCell const* next_cell,
+                                                    vte::grid::column_t next_col) -> bool {
+                                if (!next_cell)
+                                        return false;
+                                if (next_cell->attr.fragment() &&
+                                    !is_fragment_continuation_char(_vte_unistr_get_base(next_cell->c)))
+                                        return false;
+                                auto const next_selected = cell_is_selected_log(next_col, row);
+                                guint next_fore, next_back, next_deco;
+                                determine_colors(next_cell, next_selected, &next_fore, &next_back, &next_deco);
+                                auto const next_hyperlink = (m_allow_hyperlink && next_cell->attr.hyperlink_idx != 0);
+                                auto const next_hilite = (next_hyperlink && next_cell->attr.hyperlink_idx == m_hyperlink_hover_idx) ||
+                                                         (!next_hyperlink && regex_match_has_current() && m_match_span.contains(row, next_col));
+                                return next_cell->attr.attr == nattr &&
+                                       next_fore == nfore &&
+                                       next_back == nback &&
+                                       next_deco == ndeco &&
+                                       next_hyperlink == nhyperlink &&
+                                       next_hilite == nhilite;
+                        };
 
-                        // FIXME No need for the "< column_count" safety cap once bug 135 is addressed.
-                        while (j < row_data->len && j < column_count) {
-                                /* Combine with subsequent spacing marks. */
-                                cell = _vte_row_data_get (row_data, j);
-                                if (cell && !cell->attr.fragment() && g_unichar_ismark (_vte_unistr_get_base (cell->c))) {
-                                        c = _vte_unistr_append_unistr (c, cell->c);
-                                        j += cell->attr.columns();
-                                } else {
+                        auto is_regional_indicator = [](gunichar ch) -> bool {
+                                return ch >= 0x1F1E6 && ch <= 0x1F1FF;
+                        };
+                        auto is_extend = [&](gunichar ch) -> bool {
+                                auto const cat = g_unichar_type(ch);
+                                return cat == G_UNICODE_NON_SPACING_MARK ||
+                                       cat == G_UNICODE_ENCLOSING_MARK ||
+                                       is_variation_selector(ch) ||
+                                       is_emoji_modifier(ch);
+                        };
+                        auto is_spacing_mark = [](gunichar ch) -> bool {
+                                return g_unichar_type(ch) == G_UNICODE_SPACING_MARK;
+                        };
+                        auto is_control = [](gunichar ch) -> bool {
+                                if (ch == '\r' || ch == '\n')
+                                        return true;
+                                auto const cat = g_unichar_type(ch);
+                                return cat == G_UNICODE_CONTROL ||
+                                       cat == G_UNICODE_SURROGATE ||
+                                       cat == G_UNICODE_UNASSIGNED;
+                        };
+                        auto is_hangul_l = [](gunichar ch) -> bool {
+                                return (ch >= 0x1100 && ch <= 0x115F) ||
+                                       (ch >= 0xA960 && ch <= 0xA97C);
+                        };
+                        auto is_hangul_v = [](gunichar ch) -> bool {
+                                return (ch >= 0x1160 && ch <= 0x11A7) ||
+                                       (ch >= 0xD7B0 && ch <= 0xD7C6);
+                        };
+                        auto is_hangul_t = [](gunichar ch) -> bool {
+                                return (ch >= 0x11A8 && ch <= 0x11FF) ||
+                                       (ch >= 0xD7CB && ch <= 0xD7FB);
+                        };
+                        auto is_hangul_lv = [](gunichar ch) -> bool {
+                                if (ch < 0xAC00 || ch > 0xD7A3)
+                                        return false;
+                                return ((ch - 0xAC00) % 28) == 0;
+                        };
+                        auto is_hangul_lvt = [](gunichar ch) -> bool {
+                                if (ch < 0xAC00 || ch > 0xD7A3)
+                                        return false;
+                                return ((ch - 0xAC00) % 28) != 0;
+                        };
+                        auto is_extended_pictographic = [](gunichar ch) -> bool {
+                                if (ch >= 0x1F1E6 && ch <= 0x1F1FF)
+                                        return false; /* Keep RI handling for GB12/GB13. */
+                                return (ch >= 0x1F000 && ch <= 0x1FAFF) ||
+                                       (ch >= 0x2600 && ch <= 0x27BF);
+                        };
+                        auto append_unistr_chars = [](vteunistr s, VteBidiChars *chars) {
+                                _vte_unistr_append_to_gunichars(s, chars);
+                        };
+                        VteBidiChars cluster_chars;
+                        vte_bidi_chars_init(&cluster_chars);
+                        append_unistr_chars(c, &cluster_chars);
+                        auto cluster_has_zwj = false;
+                        auto cluster_size = vte_bidi_chars_get_size(&cluster_chars);
+                        for (gsize idx = 0; idx < cluster_size; idx++) {
+                                if (*vte_bidi_chars_get(&cluster_chars, idx) == 0x200D) {
+                                        cluster_has_zwj = true;
                                         break;
                                 }
                         }
+
+                        auto append_next_cell_unchecked = [&](VteCell const* next_cell) -> bool {
+                                if (!next_cell)
+                                        return false;
+
+                                auto const old_cluster_size = vte_bidi_chars_get_size(&cluster_chars);
+                                c = _vte_unistr_append_unistr(c, next_cell->c);
+                                append_unistr_chars(next_cell->c, &cluster_chars);
+                                auto const new_cluster_size = vte_bidi_chars_get_size(&cluster_chars);
+                                if (!cluster_has_zwj) {
+                                        for (gsize idx = old_cluster_size; idx < new_cluster_size; idx++) {
+                                                if (*vte_bidi_chars_get(&cluster_chars, idx) == 0x200D) {
+                                                        cluster_has_zwj = true;
+                                                        break;
+                                                }
+                                        }
+                                }
+                                j += next_cell->attr.columns();
+                                return true;
+                        };
+                        auto append_next_cell_checked = [&](VteCell const* next_cell,
+                                                            vte::grid::column_t next_col) -> bool {
+                                if (!cell_matches_run(next_cell, next_col))
+                                        return false;
+                                return append_next_cell_unchecked(next_cell);
+                        };
+
+                        auto is_grapheme_break = [&](VteCell const* next_cell) -> bool {
+                                VteBidiChars const* left_chars = &cluster_chars;
+                                VteBidiChars right_chars;
+                                vte_bidi_chars_init(&right_chars);
+                                append_unistr_chars(next_cell->c, &right_chars);
+
+                                auto const left_size = vte_bidi_chars_get_size(left_chars);
+                                auto const right_size = vte_bidi_chars_get_size(&right_chars);
+                                if (left_size == 0 || right_size == 0) {
+                                        vte_bidi_chars_clear(&right_chars);
+                                        return true;
+                                }
+
+                                auto const prev = *vte_bidi_chars_get(left_chars, left_size - 1);
+                                auto const next = *vte_bidi_chars_get(&right_chars, 0);
+                                auto break_here = true;
+
+                                /* GB3 */
+                                if (prev == '\r' && next == '\n') {
+                                        break_here = false;
+                                /* GB4 / GB5 */
+                                } else if (is_control(prev) || is_control(next)) {
+                                        break_here = true;
+                                /* GB6 */
+                                } else if (is_hangul_l(prev) &&
+                                           (is_hangul_l(next) || is_hangul_v(next) || is_hangul_lv(next) || is_hangul_lvt(next))) {
+                                        break_here = false;
+                                /* GB7 */
+                                } else if ((is_hangul_lv(prev) || is_hangul_v(prev)) &&
+                                           (is_hangul_v(next) || is_hangul_t(next))) {
+                                        break_here = false;
+                                /* GB8 */
+                                } else if ((is_hangul_lvt(prev) || is_hangul_t(prev)) && is_hangul_t(next)) {
+                                        break_here = false;
+                                /* GB9 / GB9a */
+                                } else if (is_extend(next) || is_spacing_mark(next) || next == 0x200D) {
+                                        break_here = false;
+                                /* Emoji modifier sequence */
+                                } else if (g_unichar_break_type(prev) == G_UNICODE_BREAK_EMOJI_BASE &&
+                                           g_unichar_break_type(next) == G_UNICODE_BREAK_EMOJI_MODIFIER) {
+                                        break_here = false;
+                                /* GB11 approximation: Extended_Pictographic Extend* ZWJ x Extended_Pictographic */
+                                } else if (is_extended_pictographic(next)) {
+                                        gssize idx = (gssize)left_size - 1;
+                                        while (idx >= 0 && is_extend(*vte_bidi_chars_get(left_chars, idx)))
+                                                idx--;
+                                        if (idx >= 0 && *vte_bidi_chars_get(left_chars, idx) == 0x200D) {
+                                                idx--;
+                                                while (idx >= 0 && is_extend(*vte_bidi_chars_get(left_chars, idx)))
+                                                        idx--;
+                                                if (idx >= 0 && is_extended_pictographic(*vte_bidi_chars_get(left_chars, idx)))
+                                                        break_here = false;
+                                        }
+                                /* GB12/GB13: RI pairs */
+                                } else if (is_regional_indicator(prev) && is_regional_indicator(next)) {
+                                        gsize trailing_ri = 0;
+                                        for (gssize idx = (gssize)left_size - 1; idx >= 0; --idx) {
+                                                if (!is_regional_indicator(*vte_bidi_chars_get(left_chars, idx)))
+                                                        break;
+                                                trailing_ri++;
+                                        }
+                                        break_here = (trailing_ri % 2) == 0;
+                                } else {
+                                        break_here = true;
+                                }
+
+                                vte_bidi_chars_clear(&right_chars);
+                                return break_here;
+                        };
+
+                        // FIXME No need for the "< column_count" safety cap once bug 135 is addressed.
+                        /* Combine adjacent cells while there is no grapheme-cluster
+                         * break at the boundary and visual attributes stay in run. */
+                        while (j < row_data->len && j < column_count) {
+                                auto next = _vte_row_data_get(row_data, j);
+                                if (!next)
+                                        break;
+                                auto const next_base = _vte_unistr_get_base(next->c);
+                                if (is_fragment_continuation_char(next_base)) {
+                                        if (!append_next_cell_checked(next, j))
+                                                break;
+                                        continue;
+                                }
+                                if (cluster_has_zwj) {
+                                        if (!is_control(next_base) && !g_unichar_isspace(next_base) &&
+                                            _vte_unistr_strlen(c) < 16) {
+                                                if (!append_next_cell_checked(next, j))
+                                                        break;
+                                                continue;
+                                        }
+                                }
+                                if (!cell_matches_run(next, j))
+                                        break;
+                                if (is_grapheme_break(next))
+                                        break;
+                                if (!append_next_cell_unchecked(next))
+                                        break;
+                        }
+                        vte_bidi_chars_clear(&cluster_chars);
 
                         attr = nattr;
                         fore = nfore;
