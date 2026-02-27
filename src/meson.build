@@ -286,7 +286,6 @@ libvte_common_sources = base16_sources + color_lightness_sources + cairo_glue_so
   'unicode-width.hh',
   'utf8.cc',
   'utf8.hh',
-  'vte.cc',
   'vtedefines.hh',
   'vtegtk.cc',
   'vtegtk.hh',
@@ -430,6 +429,15 @@ if get_option('gtk3')
   libvte_gtk3_cppflags = libvte_common_cppflags + gtk3_version_cppflags + ['-DVTE_GTK=3',] + release_args
   libvte_gtk3_deps = libvte_common_deps + [gtk3_dep,]
   libvte_gtk3_public_deps = libvte_common_public_deps + [gtk3_dep,]
+  libvte_gtk3_vte_cc = static_library(
+    'vte-gtk3-vtecc',
+    sources: files('vte.cc'),
+    include_directories: incs,
+    dependencies: libvte_gtk3_deps,
+    cpp_args: libvte_gtk3_cppflags + ['-Werror'],
+    pic: true,
+    install: false,
+  )
 
   if get_option('a11y')
     libvte_gtk3_sources += a11y_gtk3_sources
@@ -443,6 +451,7 @@ if get_option('gtk3')
     include_directories: incs,
     dependencies: libvte_gtk3_deps,
     cpp_args: libvte_gtk3_cppflags,
+    link_whole: [libvte_gtk3_vte_cc],
     install: true,
   )
 
@@ -507,6 +516,15 @@ if get_option('gtk4')
   libvte_gtk4_cppflags = libvte_common_cppflags + gtk4_version_cppflags + ['-DVTE_GTK=4',] + release_args
   libvte_gtk4_deps = libvte_common_deps + [gtk4_dep,]
   libvte_gtk4_public_deps = libvte_common_public_deps + [gtk4_dep,]
+  libvte_gtk4_vte_cc = static_library(
+    'vte-gtk4-vtecc',
+    sources: files('vte.cc'),
+    include_directories: incs,
+    dependencies: libvte_gtk4_deps,
+    cpp_args: libvte_gtk4_cppflags + ['-Werror'],
+    pic: true,
+    install: false,
+  )
 
   if get_option('a11y')
     libvte_gtk4_sources += a11y_gtk4_sources
@@ -519,6 +537,7 @@ if get_option('gtk4')
     include_directories: incs,
     dependencies: libvte_gtk4_deps,
     cpp_args: libvte_gtk4_cppflags,
+    link_whole: [libvte_gtk4_vte_cc],
     install: true,
   )
 

@@ -1072,10 +1072,9 @@ Terminal::match_rowcol_to_offset(vte::grid::column_t column,
                         _vte_debug_print(vte::debug::category::REGEX,
                                          "Cursor is not on a character");
 		else {
-                        auto const c = g_utf8_get_char (match_contents + offset);
                         _vte_debug_print(vte::debug::category::REGEX,
                                          "Cursor is on character U+{:04X} at {}",
-                                         c, offset);
+                                         g_utf8_get_char(match_contents + offset), offset);
                 }
 	}
 
@@ -1137,13 +1136,14 @@ Terminal::match_rowcol_to_offset(vte::grid::column_t column,
         *eattr_ptr = eattr;
 
         _VTE_DEBUG_IF(vte::debug::category::REGEX) {
-                struct _VteCharAttributes *_sattr, *_eattr;
-                _sattr = vte_char_attr_list_get(&m_match_attributes, sattr);
-                _eattr = vte_char_attr_list_get(&m_match_attributes, eattr - 1);
                 _vte_debug_print(vte::debug::category::REGEX,
                                  "Cursor is in line from {} ({},{}) to {} ({},{})",
-                                 sattr, _sattr->column, _sattr->row,
-                                 eattr - 1, _eattr->column, _eattr->row);
+                                 sattr,
+                                 vte_char_attr_list_get(&m_match_attributes, sattr)->column,
+                                 vte_char_attr_list_get(&m_match_attributes, sattr)->row,
+                                 eattr - 1,
+                                 vte_char_attr_list_get(&m_match_attributes, eattr - 1)->column,
+                                 vte_char_attr_list_get(&m_match_attributes, eattr - 1)->row);
         }
 
         return true;
@@ -1226,20 +1226,17 @@ Terminal::match_check_pcre(pcre2_match_data_8 *match_data,
 
                 _VTE_DEBUG_IF(vte::debug::category::REGEX) {
                         gchar *result;
-                        struct _VteCharAttributes *_sattr, *_eattr;
                         result = g_strndup(line + rm_so, rm_eo - rm_so);
-                        _sattr = vte_char_attr_list_get(&m_match_attributes, rm_so);
-                        _eattr = vte_char_attr_list_get(&m_match_attributes, rm_eo - 1);
                         _vte_debug_print(vte::debug::category::REGEX,
                                          "{} match `{}' from {} ({},{}) to {} ({},{}) (offset {})",
                                          r == PCRE2_ERROR_PARTIAL ? "Partial":"Full",
                                          result,
                                          rm_so,
-                                         _sattr->column,
-                                         _sattr->row,
+                                         vte_char_attr_list_get(&m_match_attributes, rm_so)->column,
+                                         vte_char_attr_list_get(&m_match_attributes, rm_so)->row,
                                          rm_eo - 1,
-                                         _eattr->column,
-                                         _eattr->row,
+                                         vte_char_attr_list_get(&m_match_attributes, rm_eo - 1)->column,
+                                         vte_char_attr_list_get(&m_match_attributes, rm_eo - 1)->row,
                                          offset);
                         g_free(result);
                 }
@@ -1337,13 +1334,14 @@ Terminal::match_check_internal_pcre(vte::grid::column_t column,
                 *match = nullptr;
 
                 _VTE_DEBUG_IF(vte::debug::category::REGEX) {
-                        struct _VteCharAttributes *_sattr, *_eattr;
-                        _sattr = vte_char_attr_list_get(&m_match_attributes, start_blank);
-                        _eattr = vte_char_attr_list_get(&m_match_attributes, end_blank - 1);
                         _vte_debug_print(vte::debug::category::REGEX,
                                          "No-match region from {} ({},{}) to {} ({},{})",
-                                         start_blank, _sattr->column, _sattr->row,
-                                         end_blank - 1, _eattr->column, _eattr->row);
+                                         start_blank,
+                                         vte_char_attr_list_get(&m_match_attributes, start_blank)->column,
+                                         vte_char_attr_list_get(&m_match_attributes, start_blank)->row,
+                                         end_blank - 1,
+                                         vte_char_attr_list_get(&m_match_attributes, end_blank - 1)->column,
+                                         vte_char_attr_list_get(&m_match_attributes, end_blank - 1)->row);
                 }
         }
 
@@ -7995,13 +7993,15 @@ Terminal::update_font_desc()
 {
 #if VTE_GTK == 3
         auto desc = vte::Freeable<PangoFontDescription>{};
+        PangoFontDescription* style_desc = nullptr;
 
         auto context = gtk_widget_get_style_context(m_widget);
         gtk_style_context_save(context);
         gtk_style_context_set_state (context, GTK_STATE_FLAG_NORMAL);
         gtk_style_context_get(context, GTK_STATE_FLAG_NORMAL, "font",
-                              static_cast<PangoFontDescription**>(std::out_ptr(desc)),
+                              &style_desc,
                               nullptr);
+        desc.reset(style_desc);
 
         gtk_style_context_restore(context);
 #elif VTE_GTK == 4

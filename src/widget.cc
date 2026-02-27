@@ -1452,11 +1452,15 @@ Widget::im_preedit_changed() noexcept
 {
         auto str = vte::glib::StringPtr{};
         auto attrs = vte::Freeable<PangoAttrList>{};
+        char* preedit_str = nullptr;
+        PangoAttrList* preedit_attrs = nullptr;
         auto cursorpos = 0;
         gtk_im_context_get_preedit_string(m_im_context.get(),
-                                          std::out_ptr(str),
-                                          std::out_ptr(attrs),
+                                          &preedit_str,
+                                          &preedit_attrs,
                                           &cursorpos);
+        str.reset(preedit_str);
+        attrs.reset(preedit_attrs);
         _vte_debug_print(vte::debug::category::EVENTS, "Input method pre-edit changed string \"{}\" cursor-position {}",
                          str.get(), cursorpos);
 

@@ -39,7 +39,7 @@
 #define _VTE_GNUC_PACKED
 #endif  /* !__GNUC__ */
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__cplusplus)
 #define _VTE_GNUC_FLAG_ENUM __attribute__((__flag_enum__))
 #else
 #define _VTE_GNUC_FLAG_ENUM
