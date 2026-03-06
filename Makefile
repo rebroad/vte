@@ -2,40 +2,86 @@
 # Meson remains the authoritative build system for this project.
 
 BUILDDIR := build
-MESON := meson
+MESON := $(or $(wildcard /usr/bin/meson),$(wildcard /usr/local/bin/meson),meson)
+NINJA := ninja
 
-.PHONY: all build setup compile install test check clean dist distcheck uninstall
+SMART ?= 1
+# 0 means unlimited retries.
+SMART_MAX_RETRIES ?= 0
+SMART_LOG ?= /tmp/vte-smart-build.log
+SMART_APT_UPDATE ?= 1
+
+.PHONY: all build setup reconfigure compile compile-plain install install-plain \
+	test test-plain check clean dist distcheck uninstall __smart_internal
 
 all: compile
 
 build: compile
 
 setup:
-	@if [ ! -d "$(BUILDDIR)" ] || [ ! -f "$(BUILDDIR)/build.ninja" ]; then \
-		$(MESON) setup "$(BUILDDIR)"; \
+	@if ! command -v "$(NINJA)" >/dev/null 2>&1; then \
+		echo "ninja is required to build this project"; \
+		exit 1; \
+	elif [ ! -d "$(BUILDDIR)" ] || [ ! -f "$(BUILDDIR)/build.ninja" ]; then \
+		"$(MESON)" setup "$(BUILDDIR)"; \
 	else \
-		$(MESON) setup "$(BUILDDIR)" --reconfigure; \
+		"$(MESON)" setup "$(BUILDDIR)" --reconfigure; \
 	fi
 
-compile: setup
-	$(MESON) compile -C "$(BUILDDIR)"
+reconfigure:
+	@if [ ! -d "$(BUILDDIR)" ] || [ ! -f "$(BUILDDIR)/build.ninja" ]; then \
+		"$(MESON)" setup "$(BUILDDIR)"; \
+	else \
+		"$(MESON)" setup "$(BUILDDIR)" --reconfigure; \
+	fi
 
-install: setup
-	$(MESON) install -C "$(BUILDDIR)"
+compile:
+	@if [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
+		$(MAKE) SMART=0 SMART_INTERNAL=1 __smart_internal SMART_TARGETS="compile-plain"; \
+	else \
+		$(MAKE) SMART=0 compile-plain; \
+	fi
 
-test check: setup
-	$(MESON) test -C "$(BUILDDIR)"
+compile-plain: setup
+	$(NINJA) -C "$(BUILDDIR)"
+
+install:
+	@if [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
+		$(MAKE) SMART=0 SMART_INTERNAL=1 __smart_internal SMART_TARGETS="install-plain"; \
+	else \
+		$(MAKE) SMART=0 install-plain; \
+	fi
+
+install-plain: setup
+	$(NINJA) -C "$(BUILDDIR)" install
+
+test check:
+	@if [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
+		$(MAKE) SMART=0 SMART_INTERNAL=1 __smart_internal SMART_TARGETS="test-plain"; \
+	else \
+		$(MAKE) SMART=0 test-plain; \
+	fi
+
+test-plain: setup
+	$(NINJA) -C "$(BUILDDIR)" test
 
 clean:
 	@if [ -d "$(BUILDDIR)" ] && [ -f "$(BUILDDIR)/build.ninja" ]; then \
-		$(MESON) compile -C "$(BUILDDIR)" --clean; \
+		$(NINJA) -C "$(BUILDDIR)" clean; \
 	fi
 
 dist: setup
-	$(MESON) dist -C "$(BUILDDIR)" --include-subprojects --no-tests
+	"$(MESON)" dist -C "$(BUILDDIR)" --include-subprojects --no-tests
 
 distcheck: setup
-	$(MESON) dist -C "$(BUILDDIR)" --include-subprojects
+	"$(MESON)" dist -C "$(BUILDDIR)" --include-subprojects
 
 uninstall: setup
-	@ninja -C "$(BUILDDIR)" uninstall
+	@$(NINJA) -C "$(BUILDDIR)" uninstall
+
+__smart_internal:
+	@set -eu; \
+	smart_targets="$(SMART_TARGETS)"; \
+	if [ -z "$$smart_targets" ]; then smart_targets="compile-plain"; fi; \
+	smart_tool="$${SMART_TOOL:-$$HOME/bin/smart-build-debian}"; \
+	"$$smart_tool" --name vte --log "$(SMART_LOG)" --max-retries "$(SMART_MAX_RETRIES)" --apt-update "$(SMART_APT_UPDATE)" -- $(MAKE) SMART=0 $$smart_targets
