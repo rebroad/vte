@@ -6,6 +6,8 @@ MESON := $(or $(wildcard /usr/bin/meson),$(wildcard /usr/local/bin/meson),meson)
 NINJA := ninja
 
 SMART ?= 1
+# By default, keep install plain so `sudo make install` does not depend on smart tooling.
+SMART_INSTALL ?= 0
 # 0 means unlimited retries.
 SMART_MAX_RETRIES ?= 0
 SMART_LOG ?= /tmp/vte-smart-build.log
@@ -46,7 +48,7 @@ compile-plain: setup
 	$(NINJA) -C "$(BUILDDIR)"
 
 install:
-	@if [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
+	@if [ "$(SMART_INSTALL)" != "0" ] && [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
 		$(MAKE) SMART=0 SMART_INTERNAL=1 __smart_internal SMART_TARGETS="install-plain"; \
 	else \
 		$(MAKE) SMART=0 install-plain; \
@@ -83,5 +85,14 @@ __smart_internal:
 	@set -eu; \
 	smart_targets="$(SMART_TARGETS)"; \
 	if [ -z "$$smart_targets" ]; then smart_targets="compile-plain"; fi; \
-	smart_tool="$${SMART_TOOL:-$$HOME/bin/smart-build-debian}"; \
+	smart_tool="$${SMART_TOOL:-}"; \
+	if [ -z "$$smart_tool" ] && command -v smart >/dev/null 2>&1; then \
+		smart_tool="$$(command -v smart)"; \
+	fi; \x "$$HOME/bin/smart" ]; then \
+		smart_tool="$$HOME/bin/smart"; \
+	fi; \
+	if [ -z "$$smart_tool" ]; then \
+		echo "smart-build-debian not found (set SMART_TOOL=/path/to/smart)"; \
+		exit 127; \
+	fi; \
 	"$$smart_tool" --name vte --log "$(SMART_LOG)" --max-retries "$(SMART_MAX_RETRIES)" --apt-update "$(SMART_APT_UPDATE)" -- $(MAKE) SMART=0 $$smart_targets
