@@ -88,10 +88,9 @@ __smart_internal:
 	smart_tool="$${SMART_TOOL:-}"; \
 	if [ -z "$$smart_tool" ] && command -v smart >/dev/null 2>&1; then \
 		smart_tool="$$(command -v smart)"; \
-	fi; \x "$$HOME/bin/smart" ]; then \
+        elif [ -x "$$HOME/bin/smart" ]; then \
 		smart_tool="$$HOME/bin/smart"; \
-	fi; \
-	if [ -z "$$smart_tool" ]; then \
+	elif [ -z "$$smart_tool" ]; then \
 		echo "smart-build-debian not found (set SMART_TOOL=/path/to/smart)"; \
 		exit 127; \
 	fi; \
