@@ -56,6 +56,14 @@ install:
 
 install-plain: setup
 	$(NINJA) -C "$(BUILDDIR)" install
+	@if [ "$$(id -u)" -eq 0 ]; then \
+		conf="/etc/ld.so.conf.d/vte-local.conf"; \
+		line="/usr/local/lib/x86_64-linux-gnu"; \
+		if [ ! -f "$$conf" ] || ! grep -qx "$$line" "$$conf"; then \
+			printf "%s\n" "$$line" > "$$conf"; \
+		fi; \
+		ldconfig; \
+	fi
 
 test check:
 	@if [ "$(SMART)" != "0" ] && [ -z "$(SMART_INTERNAL)" ]; then \
