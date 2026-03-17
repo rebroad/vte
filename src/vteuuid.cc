@@ -226,7 +226,7 @@ catch (...)
  * vte_uuid_free_to_string:
  * @uuid: (transfer full): a #VteUuid
  * @fmt: a #VteUuidFormat
- * @len: (optional): a location to store the length of the returned string, or %NULL
+ * @len: (out) (optional): a location to store the length of the returned string, or %NULL
  *
  * Frees @uuid and returns its string representation, see
  * vte_uuid_to_string() for more information.

@@ -127,9 +127,15 @@ struct _VteTerminalClass {
         void (*setup_context_menu)(VteTerminal* terminal,
                                    VteEventContext const* context);
 
+/* Rename the vfunc only for gobject-introspection to avoid a name conflict
+ * with the "termprops-changed" signal in generated bindings. */
+#ifdef __GI_SCANNER__
+        gpointer termprops_changed_vfunc;
+#else
         gboolean (* termprops_changed)(VteTerminal* terminal,
                                        int const* props,
                                        int n_props);
+#endif
 
         void (* termprop_changed)(VteTerminal* terminal,
                                   char const* prop);

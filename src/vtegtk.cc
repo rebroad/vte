@@ -1505,15 +1505,12 @@ vte_terminal_class_init(VteTerminalClass *klass)
                                    G_OBJECT_CLASS_TYPE(klass),
                                    g_cclosure_marshal_VOID__VOIDv);
 
-        /**
+        /*
          * VteTerminal::hyperlink-hover-uri-changed:
-         * @vteterminal: the object which received the signal
-         * @uri (nullable): the nonempty target URI under the mouse, or %NULL
-         * @bbox (nullable): the bounding box of the hyperlink anchor text, or %NULL
          *
          * Emitted when the hovered hyperlink changes.
          *
-         * @uri and @bbox are owned by VTE, must not be modified, and might
+         * The URI and bounding box are owned by VTE, must not be modified, and might
          * change after the signal handlers returns.
          *
          * The signal is not re-emitted when the bounding box changes for the
@@ -2032,7 +2029,7 @@ vte_terminal_class_init(VteTerminalClass *klass)
                                    g_cclosure_marshal_VOID__STRINGv);
 
         /**
-         * VteTerminal::termprops-changed:
+         * VteTerminal::termprops-changed: (rename-to termprops_changed_signal)
          * @vteterminal: the object which received the signal
          * @props: (array length=n_props) (element-type int): an array of termprop IDs
          * @n_props: the length of the @keys array
@@ -4634,18 +4631,18 @@ spawn_async_cb(GObject *source,
  * @argv: (array zero-terminated=1) (element-type filename): child's argument vector
  * @envv: (allow-none) (array zero-terminated=1) (element-type filename): a list of environment
  *   variables to be added to the environment before starting the process, or %NULL
- * @fds: (nullable) (array length=n_fds) (transfer none) (scope call): an array of file descriptors, or %NULL
+ * @fds: (nullable) (array length=n_fds) (transfer none): an array of file descriptors, or %NULL
  * @n_fds: the number of file descriptors in @fds, or 0 if @fds is %NULL
- * @map_fds: (nullable) (array length=n_map_fds) (transfer none) (scope call): an array of integers, or %NULL
+ * @map_fds: (nullable) (array length=n_map_fds) (transfer none): an array of integers, or %NULL
  * @n_map_fds: the number of elements in @map_fds, or 0 if @map_fds is %NULL
  * @spawn_flags: flags from #GSpawnFlags
- * @child_setup: (allow-none) (scope async): an extra child setup function to run in the child just before exec(), or %NULL
- * @child_setup_data: (nullable) (closure child_setup): user data for @child_setup, or %NULL
+ * @child_setup: (allow-none) (scope async) (closure child_setup_data): an extra child setup function to run in the child just before exec(), or %NULL
+ * @child_setup_data: (nullable): user data for @child_setup, or %NULL
  * @child_setup_data_destroy: (nullable) (destroy child_setup_data): a #GDestroyNotify for @child_setup_data, or %NULL
  * @timeout: a timeout value in ms, -1 for the default timeout, or G_MAXINT to wait indefinitely
  * @cancellable: (allow-none): a #GCancellable, or %NULL
- * @callback: (nullable) (scope async): a #VteTerminalSpawnAsyncCallback, or %NULL
- * @user_data: (nullable) (closure callback): user data for @callback, or %NULL
+ * @callback: (nullable) (scope async) (closure user_data): a #VteTerminalSpawnAsyncCallback, or %NULL
+ * @user_data: (nullable): user data for @callback, or %NULL
  *
  * A convenience function that wraps creating the #VtePty and spawning
  * the child process on it. See vte_pty_new_sync(), vte_pty_spawn_with_fds_async(),
@@ -4754,13 +4751,13 @@ catch (...)
  * @envv: (allow-none) (array zero-terminated=1) (element-type filename): a list of environment
  *   variables to be added to the environment before starting the process, or %NULL
  * @spawn_flags: flags from #GSpawnFlags
- * @child_setup: (allow-none) (scope async): an extra child setup function to run in the child just before exec(), or %NULL
- * @child_setup_data: (nullable) (closure child_setup): user data for @child_setup, or %NULL
+ * @child_setup: (allow-none) (scope async) (closure child_setup_data): an extra child setup function to run in the child just before exec(), or %NULL
+ * @child_setup_data: (nullable): user data for @child_setup, or %NULL
  * @child_setup_data_destroy: (nullable) (destroy child_setup_data): a #GDestroyNotify for @child_setup_data, or %NULL
  * @timeout: a timeout value in ms, -1 for the default timeout, or G_MAXINT to wait indefinitely
  * @cancellable: (allow-none): a #GCancellable, or %NULL
- * @callback: (nullable) (scope async): a #VteTerminalSpawnAsyncCallback, or %NULL
- * @user_data: (nullable) (closure callback): user data for @callback, or %NULL
+ * @callback: (nullable) (scope async) (closure user_data): a #VteTerminalSpawnAsyncCallback, or %NULL
+ * @user_data: (nullable): user data for @callback, or %NULL
  *
  * A convenience function that wraps creating the #VtePty and spawning
  * the child process on it. Like vte_terminal_spawn_with_fds_async(),
@@ -7701,7 +7698,6 @@ catch (...)
 /**
  * vte_terminal_get_enable_legacy_osc777:
  * @terminal: a #VteTerminal
- * @enable: whether to enable legacy OSC 777
  *
  * Returns: %TRUE iff legacy OSC 777 is enabled
  *

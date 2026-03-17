@@ -718,25 +718,25 @@ _vte_pty_check_envv(char const* const* strv) noexcept
 }
 
 /**
- * vte_pty_spawn_with_fds_async:
+ * vte_pty_spawn_with_fds_async: (finish-func vte_pty_spawn_finish)
  * @pty: a #VtePty
  * @working_directory: (allow-none): the name of a directory the command should start
  *   in, or %NULL to use the current working directory
  * @argv: (array zero-terminated=1) (element-type filename): child's argument vector
  * @envv: (allow-none) (array zero-terminated=1) (element-type filename): a list of environment
  *   variables to be added to the environment before starting the process, or %NULL
- * @fds: (nullable) (array length=n_fds) (transfer none) (scope call): an array of file descriptors, or %NULL
+ * @fds: (nullable) (array length=n_fds) (transfer none): an array of file descriptors, or %NULL
  * @n_fds: the number of file descriptors in @fds, or 0 if @fds is %NULL
- * @map_fds: (nullable) (array length=n_map_fds) (transfer none) (scope call): an array of integers, or %NULL
+ * @map_fds: (nullable) (array length=n_map_fds) (transfer none): an array of integers, or %NULL
  * @n_map_fds: the number of elements in @map_fds, or 0 if @map_fds is %NULL
  * @spawn_flags: flags from #GSpawnFlags
- * @child_setup: (allow-none) (scope async): an extra child setup function to run in the child just before exec(), or %NULL
- * @child_setup_data: (nullable) (closure child_setup): user data for @child_setup, or %NULL
+ * @child_setup: (allow-none) (scope async) (closure child_setup_data): an extra child setup function to run in the child just before exec(), or %NULL
+ * @child_setup_data: (nullable): user data for @child_setup, or %NULL
  * @child_setup_data_destroy: (nullable) (destroy child_setup_data): a #GDestroyNotify for @child_setup_data, or %NULL
  * @timeout: a timeout value in ms, -1 for the default timeout, or G_MAXINT to wait indefinitely
  * @cancellable: (allow-none): a #GCancellable, or %NULL
- * @callback: (nullable) (scope async): a #GAsyncReadyCallback, or %NULL
- * @user_data: (nullable) (closure callback): user data for @callback
+ * @callback: (nullable) (scope async) (closure user_data): a #GAsyncReadyCallback, or %NULL
+ * @user_data: (nullable): user data for @callback
  *
  * Starts the specified command under the pseudo-terminal @pty.
  * The @argv and @envv lists should be %NULL-terminated.
@@ -849,13 +849,13 @@ catch (...)
  * @envv: (allow-none) (array zero-terminated=1) (element-type filename): a list of environment
  *   variables to be added to the environment before starting the process, or %NULL
  * @spawn_flags: flags from #GSpawnFlags
- * @child_setup: (allow-none) (scope async): an extra child setup function to run in the child just before exec(), or %NULL
- * @child_setup_data: (nullable) (closure child_setup): user data for @child_setup, or %NULL
+ * @child_setup: (allow-none) (scope async) (closure child_setup_data): an extra child setup function to run in the child just before exec(), or %NULL
+ * @child_setup_data: (nullable): user data for @child_setup, or %NULL
  * @child_setup_data_destroy: (nullable) (destroy child_setup_data): a #GDestroyNotify for @child_setup_data, or %NULL
  * @timeout: a timeout value in ms, -1 for the default timeout, or G_MAXINT to wait indefinitely
  * @cancellable: (allow-none): a #GCancellable, or %NULL
- * @callback: (nullable) (scope async): a #GAsyncReadyCallback, or %NULL
- * @user_data: (nullable) (closure callback): user data for @callback
+ * @callback: (nullable) (scope async) (closure user_data): a #GAsyncReadyCallback, or %NULL
+ * @user_data: (nullable): user data for @callback
  *
  * Like vte_pty_spawn_with_fds_async(), except that this function does not
  * allow passing file descriptors to the child process. See vte_pty_spawn_with_fds_async()

@@ -468,7 +468,6 @@ vte_accessible_text_get_contents_at (GtkAccessibleText            *accessible,
         }
 
         case GTK_ACCESSIBLE_TEXT_GRANULARITY_LINE: {
-                guint char_offset = *char_positions_index (&contents->characters, offset);
                 guint line;
 
                 for (line = 0;
@@ -502,29 +501,35 @@ vte_accessible_text_get_contents_at (GtkAccessibleText            *accessible,
                         break;
                 if (!impl->is_word_char (ch)) {
                         /* Find the end of the previous word, updating the offset to this positio n*/
-                        while (offset >= 0 &&
-                               (ch = vte_accessible_text_contents_get_char_at (contents, offset)) &&
+                        gssize offset_i = (gssize)offset;
+                        while (offset_i >= 0 &&
+                               (ch = vte_accessible_text_contents_get_char_at (contents, (gsize)offset_i)) &&
                                !impl->is_word_char (ch)) {
-                                offset--;
+                                offset_i--;
                         }
+                        if (offset_i < 0)
+                                break;
+                        offset = (guint)offset_i;
                 }
-                *start = offset;
-                *end = offset;
+                gssize start_i = (gssize)offset;
+                gssize end_i = (gssize)offset;
 
-                while (*start >= 0 &&
-                       (ch = vte_accessible_text_contents_get_char_at (contents, *start)) &&
+                while (start_i >= 0 &&
+                       (ch = vte_accessible_text_contents_get_char_at (contents, (gsize)start_i)) &&
                        impl->is_word_char (ch)) {
-                        (*start)--;
+                        start_i--;
                 }
                 /* Now, *start points one char before the real word start offset, so adjust it */
-                (*start)++;
+                start_i++;
 
-                while (*end < contents->n_chars &&
-                       (ch = vte_accessible_text_contents_get_char_at (contents, *end)) &&
+                while (end_i < (gssize)contents->n_chars &&
+                       (ch = vte_accessible_text_contents_get_char_at (contents, (gsize)end_i)) &&
                        impl->is_word_char (ch)) {
-                        (*end)++;
+                        end_i++;
                 }
 
+                *start = (guint)start_i;
+                *end = (guint)end_i;
                 return vte_accessible_text_contents_slice (contents, *start, *end);
         }
 
@@ -1048,7 +1053,7 @@ _vte_accessible_text_scrolled (GtkAccessibleText *accessible, long delta)
 
         if (delta > 0) {
                 /* Scrolling down: lines at the top disappeared, new lines appeared at bottom */
-                gsize lines_to_remove = MIN(delta, char_positions_get_size(&prev->linebreaks));
+                gsize lines_to_remove = MIN((gsize)delta, char_positions_get_size(&prev->linebreaks));
                 if (lines_to_remove > 0 && char_positions_get_size(&prev->linebreaks) > 0) {
                         /* Find how many characters were in the removed lines */
                         gsize chars_removed = 0;
@@ -1074,7 +1079,7 @@ _vte_accessible_text_scrolled (GtkAccessibleText *accessible, long delta)
                 }
         } else if (delta < 0) {
                 /* Scrolling up: lines at the bottom disappeared, new lines appeared at top */
-                gsize lines_to_remove = MIN(-delta, char_positions_get_size(&prev->linebreaks));
+                gsize lines_to_remove = MIN((gsize)(-delta), char_positions_get_size(&prev->linebreaks));
                 if (lines_to_remove > 0 && char_positions_get_size(&prev->linebreaks) > 0) {
                         /* Find how many characters were in the removed lines from bottom */
                         gsize start_remove = char_positions_get_size(&prev->linebreaks) - lines_to_remove;
